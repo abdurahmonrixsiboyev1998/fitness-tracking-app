@@ -12,35 +12,27 @@ import (
 	"github.com/sqlc-dev/pqtype"
 )
 
-const createUser = `-- name: CreateUser :one
-INSERT INTO users (username, email, password_hash, profile) 
-VALUES ($1, $2, $3, $4)
+const createUser = `-- name: CreateUser :exec
+INSERT INTO users (username,password_hash, email, profile )
+VALUES($1, $2, $3, $4)
 RETURNING id, username, email, password_hash, profile
 `
 
 type CreateUserParams struct {
 	Username     sql.NullString
-	Email        sql.NullString
 	PasswordHash sql.NullString
+	Email        sql.NullString
 	Profile      pqtype.NullRawMessage
 }
 
-func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
-	row := q.db.QueryRowContext(ctx, createUser,
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
+	_, err := q.db.ExecContext(ctx, createUser,
 		arg.Username,
-		arg.Email,
 		arg.PasswordHash,
+		arg.Email,
 		arg.Profile,
 	)
-	var i User
-	err := row.Scan(
-		&i.ID,
-		&i.Username,
-		&i.Email,
-		&i.PasswordHash,
-		&i.Profile,
-	)
-	return i, err
+	return err
 }
 
 const deleteUser = `-- name: DeleteUser :exec
@@ -72,9 +64,7 @@ func (q *Queries) GetUser(ctx context.Context, id int32) (User, error) {
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, username, email, profile
-FROM users
-ORDER BY username
+SELECT id, username, email, profile FROM users ORDER BY username
 `
 
 type ListUsersRow struct {
@@ -114,11 +104,11 @@ func (q *Queries) ListUsers(ctx context.Context) ([]ListUsersRow, error) {
 
 const updateUser = `-- name: UpdateUser :exec
 UPDATE users
-    set
-     username = $2,
-     email = $3,
-     profile = $4
-WHERE id = $1
+    set 
+      username = $2,
+      email = $3,
+      profile = $4
+WHERE id=$1
 `
 
 type UpdateUserParams struct {
