@@ -1,9 +1,9 @@
-CREATE TABLE "users" (
+CREATE TABLE IF NOT EXISTS "users" (
   "id" serial PRIMARY KEY,
-  "username" varchar,
-  "email" varchar,
-  "password_hash" varchar,
-  "profile" jsonb
+  "username" varchar NOT NULL,
+  "email" varchar NOT NULL,
+  "password_hash" varchar NOT NULL,
+  "profile" jsonb DEFAULT '{}'
 );
 
 CREATE TABLE "workouts" (
@@ -32,13 +32,17 @@ CREATE TABLE "images" (
 );
 
 ALTER TABLE "workouts" 
-ADD FOREIGN KEY ("user_id") REFERENCES "users" ("id");
+ADD FOREIGN KEY ("user_id")
+REFERENCES "users" ("id");
 
 ALTER TABLE "exercises" 
-ADD FOREIGN KEY ("workout_id") REFERENCES "workouts" ("id");
+ADD FOREIGN KEY ("workout_id") 
+REFERENCES "workouts" ("id");
 
 ALTER TABLE "sets" 
-ADD FOREIGN KEY ("exercise_id") REFERENCES "exercises" ("id");
+ADD FOREIGN KEY ("exercise_id") 
+REFERENCES "exercises" ("id");
 
 ALTER TABLE "images" 
-ADD FOREIGN KEY ("user_id") REFERENCES "users" ("id");
+ADD FOREIGN KEY ("user_id") 
+REFERENCES "users" ("id");

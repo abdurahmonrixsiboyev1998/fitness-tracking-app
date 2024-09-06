@@ -7,37 +7,44 @@ package storage
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/sqlc-dev/pqtype"
 )
 
-const createUser = `-- name: CreateUser :exec
-INSERT INTO users (username,password_hash, email, profile )
-VALUES($1, $2, $3, $4)
-RETURNING id, username, email, password_hash, profile
+const createUser = `-- name: CreateUser :one
+insert into users (username, password_hash, email, profile)
+values ($1, $2, $3, $4)
+returning id, username, email, password_hash, profile
 `
 
 type CreateUserParams struct {
-	Username     sql.NullString
-	PasswordHash sql.NullString
-	Email        sql.NullString
+	Username     string
+	PasswordHash string
+	Email        string
 	Profile      pqtype.NullRawMessage
 }
 
-func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) error {
-	_, err := q.db.ExecContext(ctx, createUser,
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, createUser,
 		arg.Username,
 		arg.PasswordHash,
 		arg.Email,
 		arg.Profile,
 	)
-	return err
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.PasswordHash,
+		&i.Profile,
+	)
+	return i, err
 }
 
 const deleteUser = `-- name: DeleteUser :exec
-DELETE FROM users
-WHERE id = $1
+delete from users
+where id = $1
 `
 
 func (q *Queries) DeleteUser(ctx context.Context, id int32) error {
@@ -46,8 +53,8 @@ func (q *Queries) DeleteUser(ctx context.Context, id int32) error {
 }
 
 const getUser = `-- name: GetUser :one
-SELECT id, username, email, password_hash, profile FROM users
-WHERE id = $1 LIMIT 1
+select id, username, email, password_hash, profile from users
+where id = $1 limit 1
 `
 
 func (q *Queries) GetUser(ctx context.Context, id int32) (User, error) {
@@ -63,26 +70,28 @@ func (q *Queries) GetUser(ctx context.Context, id int32) (User, error) {
 	return i, err
 }
 
-const listUsers = `-- name: ListUsers :many
-SELECT id, username, email, profile FROM users ORDER BY username
+const listUser = `-- name: ListUser :many
+select id, username, email, profile
+from users
+order by username
 `
 
-type ListUsersRow struct {
+type ListUserRow struct {
 	ID       int32
-	Username sql.NullString
-	Email    sql.NullString
+	Username string
+	Email    string
 	Profile  pqtype.NullRawMessage
 }
 
-func (q *Queries) ListUsers(ctx context.Context) ([]ListUsersRow, error) {
-	rows, err := q.db.QueryContext(ctx, listUsers)
+func (q *Queries) ListUser(ctx context.Context) ([]ListUserRow, error) {
+	rows, err := q.db.QueryContext(ctx, listUser)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListUsersRow
+	var items []ListUserRow
 	for rows.Next() {
-		var i ListUsersRow
+		var i ListUserRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Username,
@@ -103,18 +112,15 @@ func (q *Queries) ListUsers(ctx context.Context) ([]ListUsersRow, error) {
 }
 
 const updateUser = `-- name: UpdateUser :exec
-UPDATE users
-    set 
-      username = $2,
-      email = $3,
-      profile = $4
-WHERE id=$1
+update users
+set username = $2, email = $3, profile = $4
+where id = $1
 `
 
 type UpdateUserParams struct {
 	ID       int32
-	Username sql.NullString
-	Email    sql.NullString
+	Username string
+	Email    string
 	Profile  pqtype.NullRawMessage
 }
 
