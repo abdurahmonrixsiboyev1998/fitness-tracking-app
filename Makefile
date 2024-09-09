@@ -1,18 +1,22 @@
+
 run:
 	@go run cmd/main.go
 
-CURRENT_DIR := $(shell pwd)
-DB_URL := "postgres://postgres:14022014@localhost:5432/fitness_traking?sslmode=disable"
+migrate_import:
+	go get github.com/golang-migrate/migrate/v4/database/postgres
 
-migrate-up:
-	migrate -path migrations/ -database $(DB_URL) up
+migrate_create:
+	migrate create -ext sql -dir migrations -seq fitness
 
+migrate_up:
+	migrate -database postgres://postgres:14022014@localhost:5432/fitness_tracking?sslmode=disable -path ./migrations up
 
-migrate-down:
-	migrate -path migrations/ -database  $(DB_URL) down
+migrate_down:
+	migrate -database postgres://postgres:14022014@localhost:5432/fitness_tracking?sslmode=disable -path ./migrations down
 
-migrate-force:
-	migrate -path migrations/ -database  $(DB_URL) force 1
+migrate_force:
+	migrate -database postgres://postgres:14022014@localhost:5432/fitness_tracking?sslmode=disable -path ./migrations force
 
 sqlc-generate:
-	@sqlc vet && sqlc generate
+	sqlc vet ; sqlc generate
+	

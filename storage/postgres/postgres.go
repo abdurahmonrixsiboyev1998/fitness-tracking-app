@@ -3,25 +3,25 @@ package postgres
 import (
 	"context"
 	"database/sql"
+	"fmt"
 )
 
 type Postgres struct {
 	*sql.DB
 }
 
-func New(connectionString string) (*Postgres, error) {
-	db, err := sql.Open("postgres", connectionString)
+func New(connectString string) (*Postgres, error){
+	db , err :=sql.Open("postgres", connectString)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("failed to conn: %v", err)
 	}
-
 	return &Postgres{db}, nil
 }
 
-func (p *Postgres) Ping(ctx context.Context) error {
+func (p *Postgres) Ping (ctx context.Context)error{
 	return p.DB.PingContext(ctx)
 }
 
-func (p *Postgres) Close() error {
-	return p.DB.Close()
+func (p *Postgres) Close(){
+	p.DB.Close()
 }

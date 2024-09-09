@@ -7,14 +7,15 @@ package storage
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/sqlc-dev/pqtype"
 )
 
 const createUser = `-- name: CreateUser :one
-insert into users (username, password_hash, email, profile)
-values ($1, $2, $3, $4)
-returning id, username, email, password_hash, profile
+INSERT INTO users (username, password_hash, email, profile) 
+VALUES ($1, $2, $3, $4)
+RETURNING id, username, email, password_hash, profile
 `
 
 type CreateUserParams struct {
@@ -42,9 +43,36 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 	return i, err
 }
 
+const createWorkout = `-- name: CreateWorkout :one
+INSERT INTO workouts (user_id, name, description)
+VALUES ($1, $2, $3)
+RETURNING id, user_id, name, description, date, created_at, updated_at
+`
+
+type CreateWorkoutParams struct {
+	UserID      int32
+	Name        string
+	Description sql.NullString
+}
+
+func (q *Queries) CreateWorkout(ctx context.Context, arg CreateWorkoutParams) (Workout, error) {
+	row := q.db.QueryRowContext(ctx, createWorkout, arg.UserID, arg.Name, arg.Description)
+	var i Workout
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.Description,
+		&i.Date,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
 const deleteUser = `-- name: DeleteUser :exec
-delete from users
-where id = $1
+DELETE FROM users
+WHERE id = $1
 `
 
 func (q *Queries) DeleteUser(ctx context.Context, id int32) error {
@@ -52,9 +80,24 @@ func (q *Queries) DeleteUser(ctx context.Context, id int32) error {
 	return err
 }
 
+const deleteWorkout = `-- name: DeleteWorkout :exec
+DELETE FROM workouts 
+WHERE id = $1 and user_id = $2
+`
+
+type DeleteWorkoutParams struct {
+	ID     int32
+	UserID int32
+}
+
+func (q *Queries) DeleteWorkout(ctx context.Context, arg DeleteWorkoutParams) error {
+	_, err := q.db.ExecContext(ctx, deleteWorkout, arg.ID, arg.UserID)
+	return err
+}
+
 const getUser = `-- name: GetUser :one
-select id, username, email, password_hash, profile from users
-where id = $1 limit 1
+SELECT id, username, email, password_hash, profile FROM users
+WHERE id = $1 LIMIT 1
 `
 
 func (q *Queries) GetUser(ctx context.Context, id int32) (User, error) {
@@ -70,28 +113,91 @@ func (q *Queries) GetUser(ctx context.Context, id int32) (User, error) {
 	return i, err
 }
 
-const listUser = `-- name: ListUser :many
-select id, username, email, profile
-from users
-order by username
+const getWorkoutByID = `-- name: GetWorkoutByID :one
+SELECT id, user_id, name, description, date, created_at, updated_at 
+FROM workouts 
+WHERE id = $1 and user_id = $2
 `
 
-type ListUserRow struct {
+type GetWorkoutByIDParams struct {
+	ID     int32
+	UserID int32
+}
+
+func (q *Queries) GetWorkoutByID(ctx context.Context, arg GetWorkoutByIDParams) (Workout, error) {
+	row := q.db.QueryRowContext(ctx, getWorkoutByID, arg.ID, arg.UserID)
+	var i Workout
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.Description,
+		&i.Date,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getWorkoutByUserID = `-- name: GetWorkoutByUserID :many
+SELECT id, user_id, name, description, date, created_at, updated_at 
+FROM workouts 
+WHERE user_id = $1
+`
+
+func (q *Queries) GetWorkoutByUserID(ctx context.Context, userID int32) ([]Workout, error) {
+	rows, err := q.db.QueryContext(ctx, getWorkoutByUserID, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Workout
+	for rows.Next() {
+		var i Workout
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Name,
+			&i.Description,
+			&i.Date,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUsers = `-- name: ListUsers :many
+SELECT id, username, email, profile 
+FROM users
+ORDER BY username
+`
+
+type ListUsersRow struct {
 	ID       int32
 	Username string
 	Email    string
 	Profile  pqtype.NullRawMessage
 }
 
-func (q *Queries) ListUser(ctx context.Context) ([]ListUserRow, error) {
-	rows, err := q.db.QueryContext(ctx, listUser)
+func (q *Queries) ListUsers(ctx context.Context) ([]ListUsersRow, error) {
+	rows, err := q.db.QueryContext(ctx, listUsers)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListUserRow
+	var items []ListUsersRow
 	for rows.Next() {
-		var i ListUserRow
+		var i ListUsersRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Username,
@@ -112,9 +218,12 @@ func (q *Queries) ListUser(ctx context.Context) ([]ListUserRow, error) {
 }
 
 const updateUser = `-- name: UpdateUser :exec
-update users
-set username = $2, email = $3, profile = $4
-where id = $1
+UPDATE users
+  set 
+    username = $2,
+    email = $3,
+    profile = $4
+WHERE id = $1
 `
 
 type UpdateUserParams struct {
@@ -132,4 +241,39 @@ func (q *Queries) UpdateUser(ctx context.Context, arg UpdateUserParams) error {
 		arg.Profile,
 	)
 	return err
+}
+
+const updateWorkoutByUserID = `-- name: UpdateWorkoutByUserID :exec
+UPDATE workouts 
+SET name = $3, description = $4  , updated_at = now()
+WHERE id = $1 and user_id = $2
+`
+
+type UpdateWorkoutByUserIDParams struct {
+	ID          int32
+	UserID      int32
+	Name        string
+	Description sql.NullString
+}
+
+func (q *Queries) UpdateWorkoutByUserID(ctx context.Context, arg UpdateWorkoutByUserIDParams) error {
+	_, err := q.db.ExecContext(ctx, updateWorkoutByUserID,
+		arg.ID,
+		arg.UserID,
+		arg.Name,
+		arg.Description,
+	)
+	return err
+}
+
+const verifyUserLogin = `-- name: VerifyUserLogin :one
+SELECT password_hash FROM users 
+WHERE id = $1
+`
+
+func (q *Queries) VerifyUserLogin(ctx context.Context, id int32) (string, error) {
+	row := q.db.QueryRowContext(ctx, verifyUserLogin, id)
+	var password_hash string
+	err := row.Scan(&password_hash)
+	return password_hash, err
 }

@@ -1,1 +1,1 @@
-# fitness-tracking-app
+# FITNESS-TRACKING-APP

@@ -1,22 +1,53 @@
--- name: GetUser :one 
-select * from users
-where id = $1 limit 1;
+-- name: GetUser :one
+SELECT * FROM users
+WHERE id = $1 LIMIT 1;
 
--- name: ListUser :many
-select id, username, email, profile
-from users
-order by username;
+-- name: ListUsers :many
+SELECT id, username, email, profile 
+FROM users
+ORDER BY username;
 
 -- name: CreateUser :one
-insert into users (username, password_hash, email, profile)
-values ($1, $2, $3, $4)
-returning *;
+INSERT INTO users (username, password_hash, email, profile) 
+VALUES ($1, $2, $3, $4)
+RETURNING *;
 
 -- name: UpdateUser :exec
-update users
-set username = $2, email = $3, profile = $4
-where id = $1;
+UPDATE users
+  set 
+    username = $2,
+    email = $3,
+    profile = $4
+WHERE id = $1;
 
 -- name: DeleteUser :exec
-delete from users
-where id = $1;
+DELETE FROM users
+WHERE id = $1;
+
+-- name: VerifyUserLogin :one
+SELECT password_hash FROM users 
+WHERE id = $1;
+
+-- name: CreateWorkout :one
+INSERT INTO workouts (user_id, name, description)
+VALUES ($1, $2, $3)
+RETURNING * ;
+
+-- name: GetWorkoutByUserID :many
+SELECT id, user_id, name, description, date, created_at, updated_at 
+FROM workouts 
+WHERE user_id = $1 ;
+
+-- name: GetWorkoutByID :one
+SELECT id, user_id, name, description, date, created_at, updated_at 
+FROM workouts 
+WHERE id = $1 and user_id = $2 ;
+
+-- name: UpdateWorkoutByUserID :exec
+UPDATE workouts 
+SET name = $3, description = $4  , updated_at = now()
+WHERE id = $1 and user_id = $2;
+
+-- name: DeleteWorkout :exec
+DELETE FROM workouts 
+WHERE id = $1 and user_id = $2 ;

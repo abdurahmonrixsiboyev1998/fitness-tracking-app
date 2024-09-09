@@ -15,14 +15,10 @@ func New(addr string, hand http.Handler, log slog.Logger) HTTPServer {
 		Addr:    addr,
 		Handler: hand,
 	}
-
-	return HTTPServer{
-		srv: srv,
-		log: log,
-	}
+	return HTTPServer{srv: srv, log: log}
 }
 
-func (s *HTTPServer) Run() error {
-	s.log.Info("Server is running on " + s.srv.Addr)
+func (s HTTPServer) Run() error {
+	s.log.Info("The HTTP server started at:", slog.String("addr", s.srv.Addr))
 	return s.srv.ListenAndServe()
 }
